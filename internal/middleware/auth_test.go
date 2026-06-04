@@ -1,6 +1,7 @@
 package middleware
 
 import (
+	"context"
 	"net/http"
 	"net/http/httptest"
 	"testing"
@@ -8,9 +9,43 @@ import (
 	"github.com/tradekmv/gophermart.git/pkg/auth"
 )
 
+func TestWithUserID_StoresValue(t *testing.T) {
+	ctx := WithUserID(context.Background(), "user-1")
+	got, ok := FromContext(ctx)
+	if !ok {
+		t.Fatalf("FromContext() ok = false, want true")
+	}
+	if got != "user-1" {
+		t.Errorf("FromContext() = %q, want %q", got, "user-1")
+	}
+}
+
+func TestFromContext_ReturnsEmptyWhenUnset(t *testing.T) {
+	got, ok := FromContext(context.Background())
+	if ok {
+		t.Errorf("FromContext() ok = true, want false")
+	}
+	if got != "" {
+		t.Errorf("FromContext() = %q, want empty", got)
+	}
+}
+
+func TestFromContext_IgnoresWrongType(t *testing.T) {
+	// Кладём значение неправильного типа под нашим ключом — FromContext
+	// должен вернуть ("", false), а не паниковать.
+	ctx := context.WithValue(context.Background(), userIDKey, 42)
+	got, ok := FromContext(ctx)
+	if ok {
+		t.Errorf("FromContext() ok = true, want false")
+	}
+	if got != "" {
+		t.Errorf("FromContext() = %q, want empty", got)
+	}
+}
+
 func TestAuthMiddleware_RequireAuth_NoCookie(t *testing.T) {
 	authSvc := auth.New(auth.Config{SecretKey: "test-secret"})
-	middleware := NewAuthMiddleware(authSvc)
+	middleware := NewAuthMiddleware(authSvc, nil)
 
 	req := httptest.NewRequest(http.MethodGet, "/protected", nil)
 	rr := httptest.NewRecorder()
@@ -28,7 +63,7 @@ func TestAuthMiddleware_RequireAuth_NoCookie(t *testing.T) {
 
 func TestAuthMiddleware_RequireAuth_InvalidCookie(t *testing.T) {
 	authSvc := auth.New(auth.Config{SecretKey: "test-secret"})
-	middleware := NewAuthMiddleware(authSvc)
+	middleware := NewAuthMiddleware(authSvc, nil)
 
 	req := httptest.NewRequest(http.MethodGet, "/protected", nil)
 	req.AddCookie(&http.Cookie{Name: "session", Value: "invalid-token"})
@@ -47,7 +82,7 @@ func TestAuthMiddleware_RequireAuth_InvalidCookie(t *testing.T) {
 
 func TestAuthMiddleware_RequireAuth_ValidToken(t *testing.T) {
 	authSvc := auth.New(auth.Config{SecretKey: "test-secret"})
-	middleware := NewAuthMiddleware(authSvc)
+	middleware := NewAuthMiddleware(authSvc, nil)
 
 	// Generate valid token
 	token, err := authSvc.GenerateToken("user-123")
@@ -78,7 +113,7 @@ func TestAuthMiddleware_RequireAuth_ValidToken(t *testing.T) {
 
 func TestAuthMiddleware_RequireAuth_BearerToken(t *testing.T) {
 	authSvc := auth.New(auth.Config{SecretKey: "test-secret"})
-	middleware := NewAuthMiddleware(authSvc)
+	middleware := NewAuthMiddleware(authSvc, nil)
 
 	// Generate valid token
 	token, err := authSvc.GenerateToken("user-456")

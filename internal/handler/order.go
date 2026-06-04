@@ -28,7 +28,9 @@ type OrderHandler struct {
 }
 
 // NewOrderHandler creates a new OrderHandler.
-func NewOrderHandler(svc *service.OrderService, logger *zerolog.Logger) *OrderHandler {
+// Принимает интерфейс OrderServiceInterface для возможности подмены в тестах
+// (принцип "accept interfaces, return structures").
+func NewOrderHandler(svc OrderServiceInterface, logger *zerolog.Logger) *OrderHandler {
 	return &OrderHandler{
 		service: svc,
 		logger:  logger,

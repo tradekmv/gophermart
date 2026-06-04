@@ -17,6 +17,7 @@ type Config struct {
 	AuthSecretKey        string // AUTH_SECRET_KEY, default "default-secret"
 	RunEnv               string // RUN_ENV, "production" enables Secure cookies
 	AccrualInterval      int    // ACCRUAL_INTERVAL_SEC, interval for accrual sync in seconds
+	AccrualWorkers       int    // ACCRUAL_WORKERS, number of concurrent accrual sync workers
 }
 
 const (
@@ -69,7 +70,7 @@ func Load() *Config {
 	// ServerAddress: flag > RUN_ADDRESS env > default
 	if aSet {
 		cfg.ServerAddress = *flagServerAddress
-	} else if env := os.Getenv("RUN_ADDRESS"); env != "" {
+	} else if env, ok := os.LookupEnv("RUN_ADDRESS"); ok && env != "" {
 		cfg.ServerAddress = env
 	} else {
 		cfg.ServerAddress = defaultServerAddress
@@ -78,7 +79,7 @@ func Load() *Config {
 	// DatabaseURI: flag > DATABASE_URI env > empty
 	if dSet {
 		cfg.DatabaseURI = *flagDatabaseURI
-	} else if env := os.Getenv("DATABASE_URI"); env != "" {
+	} else if env, ok := os.LookupEnv("DATABASE_URI"); ok && env != "" {
 		cfg.DatabaseURI = env
 	} else {
 		cfg.DatabaseURI = "" // Will cause error if not set
@@ -87,7 +88,7 @@ func Load() *Config {
 	// AccrualSystemAddress: flag > ACCRUAL_SYSTEM_ADDRESS env > empty
 	if rSet {
 		cfg.AccrualSystemAddress = *flagAccrualAddress
-	} else if env := os.Getenv("ACCRUAL_SYSTEM_ADDRESS"); env != "" {
+	} else if env, ok := os.LookupEnv("ACCRUAL_SYSTEM_ADDRESS"); ok && env != "" {
 		cfg.AccrualSystemAddress = env
 	} else {
 		cfg.AccrualSystemAddress = ""
@@ -96,16 +97,17 @@ func Load() *Config {
 	// AuthSecretKey: flag > AUTH_SECRET_KEY env > default
 	if kSet {
 		cfg.AuthSecretKey = *flagAuthSecretKey
-	} else if env := os.Getenv("AUTH_SECRET_KEY"); env != "" {
+	} else if env, ok := os.LookupEnv("AUTH_SECRET_KEY"); ok && env != "" {
 		cfg.AuthSecretKey = env
 	} else {
 		cfg.AuthSecretKey = defaultAuthSecretKey
 	}
 
-	// RunEnv: flag > RUN_ENV env > default
+	// RunEnv: flag > RUN_ENV env > default.
+	// Для RUN_ENV пустая строка — валидное значение, нормализуется в "development" ниже.
 	if eSet {
 		cfg.RunEnv = *flagRunEnv
-	} else if env := os.Getenv("RUN_ENV"); env != "" {
+	} else if env, ok := os.LookupEnv("RUN_ENV"); ok {
 		cfg.RunEnv = env
 	} else {
 		cfg.RunEnv = defaultRunEnv
@@ -119,9 +121,20 @@ func Load() *Config {
 
 	// AccrualInterval: default 1 second, overridable via ACCRUAL_INTERVAL_SEC env
 	cfg.AccrualInterval = 1
-	if envVal := os.Getenv("ACCRUAL_INTERVAL_SEC"); envVal != "" {
+	if envVal, ok := os.LookupEnv("ACCRUAL_INTERVAL_SEC"); ok && envVal != "" {
 		if val, err := strconv.Atoi(envVal); err == nil && val > 0 {
 			cfg.AccrualInterval = val
+		}
+	}
+
+	// AccrualWorkers: default 5, overridable via ACCRUAL_WORKERS env.
+	// 5 — компромисс между latency (параллельные HTTP-запросы) и нагрузкой
+	// на сетевой стек / fd. accrual сам ограничивает RPS через 429 + Retry-After,
+	// поэтому больше 5-10 воркеров в нашем масштабе не даст выигрыша.
+	cfg.AccrualWorkers = 5
+	if envVal, ok := os.LookupEnv("ACCRUAL_WORKERS"); ok && envVal != "" {
+		if val, err := strconv.Atoi(envVal); err == nil && val > 0 {
+			cfg.AccrualWorkers = val
 		}
 	}
 

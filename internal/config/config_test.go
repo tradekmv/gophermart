@@ -1,17 +1,16 @@
 package config
 
 import (
-	"os"
 	"testing"
 )
 
 func TestConfig_Load_Defaults(t *testing.T) {
-	// Clear environment variables
-	os.Unsetenv("RUN_ADDRESS")
-	os.Unsetenv("DATABASE_URI")
-	os.Unsetenv("ACCRUAL_SYSTEM_ADDRESS")
-	os.Unsetenv("AUTH_SECRET_KEY")
-	os.Unsetenv("RUN_ENV")
+	// Проверяем default-путь: все env-переменные пустые
+	t.Setenv("RUN_ADDRESS", "")
+	t.Setenv("DATABASE_URI", "")
+	t.Setenv("ACCRUAL_SYSTEM_ADDRESS", "")
+	t.Setenv("AUTH_SECRET_KEY", "")
+	t.Setenv("RUN_ENV", "")
 
 	cfg := Load()
 
@@ -33,26 +32,11 @@ func TestConfig_Load_Defaults(t *testing.T) {
 }
 
 func TestConfig_Load_FromEnvironment(t *testing.T) {
-	// Clear environment variables first
-	os.Unsetenv("RUN_ADDRESS")
-	os.Unsetenv("DATABASE_URI")
-	os.Unsetenv("ACCRUAL_SYSTEM_ADDRESS")
-	os.Unsetenv("AUTH_SECRET_KEY")
-	os.Unsetenv("RUN_ENV")
-
-	os.Setenv("RUN_ADDRESS", "localhost:9090")
-	os.Setenv("DATABASE_URI", "postgres://localhost:5432/test")
-	os.Setenv("ACCRUAL_SYSTEM_ADDRESS", "http://localhost:8081")
-	os.Setenv("AUTH_SECRET_KEY", "my-secret-key")
-	os.Setenv("RUN_ENV", "production")
-
-	defer func() {
-		os.Unsetenv("RUN_ADDRESS")
-		os.Unsetenv("DATABASE_URI")
-		os.Unsetenv("ACCRUAL_SYSTEM_ADDRESS")
-		os.Unsetenv("AUTH_SECRET_KEY")
-		os.Unsetenv("RUN_ENV")
-	}()
+	t.Setenv("RUN_ADDRESS", "localhost:9090")
+	t.Setenv("DATABASE_URI", "postgres://localhost:5432/test")
+	t.Setenv("ACCRUAL_SYSTEM_ADDRESS", "http://localhost:8081")
+	t.Setenv("AUTH_SECRET_KEY", "my-secret-key")
+	t.Setenv("RUN_ENV", "production")
 
 	cfg := Load()
 
@@ -109,9 +93,7 @@ func TestConfig_RunEnvNormalization(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			os.Unsetenv("RUN_ENV")
-			os.Setenv("RUN_ENV", tt.input)
-			defer os.Unsetenv("RUN_ENV")
+			t.Setenv("RUN_ENV", tt.input)
 
 			cfg := Load()
 			if cfg.RunEnv != tt.wanted {

@@ -70,7 +70,7 @@ func TestOrderHandler_UploadOrder_Success(t *testing.T) {
 	logger := zerolog.Nop()
 	req := httptest.NewRequest(http.MethodPost, "/api/user/orders", bytes.NewBufferString("79927398713"))
 	req.Header.Set("Content-Type", "text/plain")
-	ctx := context.WithValue(req.Context(), middleware.ContextKey("userID"), "user-123")
+	ctx := middleware.WithUserID(req.Context(), "user-123")
 	req = req.WithContext(ctx)
 	rr := httptest.NewRecorder()
 	mockService := &MockOrderService{uploadErr: nil}
@@ -85,7 +85,7 @@ func TestOrderHandler_UploadOrder_AlreadyUploaded(t *testing.T) {
 	logger := zerolog.Nop()
 	req := httptest.NewRequest(http.MethodPost, "/api/user/orders", bytes.NewBufferString("79927398713"))
 	req.Header.Set("Content-Type", "text/plain")
-	ctx := context.WithValue(req.Context(), middleware.ContextKey("userID"), "user-123")
+	ctx := middleware.WithUserID(req.Context(), "user-123")
 	req = req.WithContext(ctx)
 	rr := httptest.NewRecorder()
 	mockService := &MockOrderService{uploadErr: service.ErrOrderAlreadyUploaded}
@@ -100,7 +100,7 @@ func TestOrderHandler_UploadOrder_AnotherUser(t *testing.T) {
 	logger := zerolog.Nop()
 	req := httptest.NewRequest(http.MethodPost, "/api/user/orders", bytes.NewBufferString("79927398713"))
 	req.Header.Set("Content-Type", "text/plain")
-	ctx := context.WithValue(req.Context(), middleware.ContextKey("userID"), "user-123")
+	ctx := middleware.WithUserID(req.Context(), "user-123")
 	req = req.WithContext(ctx)
 	rr := httptest.NewRecorder()
 	mockService := &MockOrderService{uploadErr: service.ErrOrderByAnotherUser}
@@ -115,7 +115,7 @@ func TestOrderHandler_UploadOrder_InvalidNumber(t *testing.T) {
 	logger := zerolog.Nop()
 	req := httptest.NewRequest(http.MethodPost, "/api/user/orders", bytes.NewBufferString("1234567890123456"))
 	req.Header.Set("Content-Type", "text/plain")
-	ctx := context.WithValue(req.Context(), middleware.ContextKey("userID"), "user-123")
+	ctx := middleware.WithUserID(req.Context(), "user-123")
 	req = req.WithContext(ctx)
 	rr := httptest.NewRecorder()
 	mockService := &MockOrderService{uploadErr: service.ErrInvalidOrderNumber}
@@ -130,7 +130,7 @@ func TestOrderHandler_UploadOrder_InternalError(t *testing.T) {
 	logger := zerolog.Nop()
 	req := httptest.NewRequest(http.MethodPost, "/api/user/orders", bytes.NewBufferString("79927398713"))
 	req.Header.Set("Content-Type", "text/plain")
-	ctx := context.WithValue(req.Context(), middleware.ContextKey("userID"), "user-123")
+	ctx := middleware.WithUserID(req.Context(), "user-123")
 	req = req.WithContext(ctx)
 	rr := httptest.NewRecorder()
 	mockService := &MockOrderService{uploadErr: errors.New("internal error")}
@@ -155,7 +155,7 @@ func TestOrderHandler_GetOrders_Unauthorized(t *testing.T) {
 func TestOrderHandler_GetOrders_Success(t *testing.T) {
 	logger := zerolog.Nop()
 	req := httptest.NewRequest(http.MethodGet, "/api/user/orders", nil)
-	ctx := context.WithValue(req.Context(), middleware.ContextKey("userID"), "user-123")
+	ctx := middleware.WithUserID(req.Context(), "user-123")
 	req = req.WithContext(ctx)
 	rr := httptest.NewRecorder()
 	mockService := &MockOrderService{
@@ -166,10 +166,12 @@ func TestOrderHandler_GetOrders_Success(t *testing.T) {
 	h := &OrderHandler{service: mockService, logger: &logger}
 	h.GetOrders(rr, req)
 	if rr.Code != http.StatusOK {
-		t.Errorf("expected %d, got %d", http.StatusOK, rr.Code)
+		t.Fatalf("expected %d, got %d: %s", http.StatusOK, rr.Code, rr.Body.String())
 	}
 	var orders []model.OrderResponse
-	json.Unmarshal(rr.Body.Bytes(), &orders)
+	if err := json.Unmarshal(rr.Body.Bytes(), &orders); err != nil {
+		t.Fatalf("failed to unmarshal response: %v", err)
+	}
 	if len(orders) != 1 {
 		t.Errorf("expected 1 order, got %d", len(orders))
 	}
@@ -178,7 +180,7 @@ func TestOrderHandler_GetOrders_Success(t *testing.T) {
 func TestOrderHandler_GetOrders_Empty(t *testing.T) {
 	logger := zerolog.Nop()
 	req := httptest.NewRequest(http.MethodGet, "/api/user/orders", nil)
-	ctx := context.WithValue(req.Context(), middleware.ContextKey("userID"), "user-123")
+	ctx := middleware.WithUserID(req.Context(), "user-123")
 	req = req.WithContext(ctx)
 	rr := httptest.NewRecorder()
 	mockService := &MockOrderService{orders: []model.OrderResponse{}}
@@ -192,7 +194,7 @@ func TestOrderHandler_GetOrders_Empty(t *testing.T) {
 func TestOrderHandler_GetOrders_InternalError(t *testing.T) {
 	logger := zerolog.Nop()
 	req := httptest.NewRequest(http.MethodGet, "/api/user/orders", nil)
-	ctx := context.WithValue(req.Context(), middleware.ContextKey("userID"), "user-123")
+	ctx := middleware.WithUserID(req.Context(), "user-123")
 	req = req.WithContext(ctx)
 	rr := httptest.NewRecorder()
 	mockService := &MockOrderService{getErr: errors.New("db error")}

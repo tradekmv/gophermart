@@ -13,6 +13,8 @@ import (
 var (
 	// ErrInsufficientFunds is returned when user has insufficient balance.
 	ErrInsufficientFunds = errors.New("insufficient funds")
+	// ErrInvalidAmount is returned when the requested sum is not positive.
+	ErrInvalidAmount = errors.New("invalid amount")
 )
 
 // BalanceService handles balance-related business logic.
@@ -49,9 +51,10 @@ func (s *BalanceService) Withdraw(ctx context.Context, userID, orderNumber strin
 		return err
 	}
 
-	// Validate sum
+	// Validate sum (non-positive sum — отдельная семантическая ошибка,
+	// а не "невалидный номер заказа").
 	if sum <= 0 {
-		return ErrInvalidOrderNumber
+		return ErrInvalidAmount
 	}
 
 	// Process withdrawal

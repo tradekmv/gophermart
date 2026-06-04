@@ -253,7 +253,7 @@ func TestUserHandler_Login_TokenError(t *testing.T) {
 
 func TestGetUserIDFromContext(t *testing.T) {
 	req := httptest.NewRequest(http.MethodGet, "/", nil)
-	ctx := context.WithValue(req.Context(), middleware.ContextKey("userID"), "test-user-123")
+	ctx := middleware.WithUserID(req.Context(), "test-user-123")
 	req = req.WithContext(ctx)
 	userID := getUserIDFromContext(req.Context())
 	if userID != "test-user-123" {

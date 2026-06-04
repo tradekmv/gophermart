@@ -1,70 +1,60 @@
 // Package logger provides structured logging using zerolog.
+//
+// Logger создаётся через Init() / NewConsole() и явно прокидывается в
+// компоненты через DI — НЕЛЬЗЯ обращаться к глобальному состоянию пакета.
 package logger
 
 import (
+	"io"
 	"os"
+	"strings"
 	"time"
 
 	"github.com/rs/zerolog"
 )
 
-var log zerolog.Logger
-
-// Init initializes the global logger with console output.
+// Init создаёт root-логгер с выводом в stdout (консольный writer)
+// и level=Info. Удобно вызывать один раз в main() и прокидывать
+// дочерние логгеры в компоненты:
+//
+//	appLogger := logger.Init()
+//	handlerLogger := appLogger.With().Str("component", "handler").Logger()
+//	NewBalanceHandler(svc, &handlerLogger, ...)
+//
+// В тестах использовать NewConsole("error") + &log или NewNop().
 func Init() *zerolog.Logger {
+	return NewConsole(os.Stdout, "info")
+}
+
+// NewConsole создаёт zerolog.Logger с консольным writer'ом и level.
+// Если level невалиден — используется info. Передавай свой io.Writer для тестов.
+func NewConsole(w io.Writer, level string) *zerolog.Logger {
 	zerolog.TimeFieldFormat = time.RFC3339
 
+	lvl, err := zerolog.ParseLevel(strings.ToLower(level))
+	if err != nil || lvl == zerolog.NoLevel {
+		lvl = zerolog.InfoLevel
+	}
+	zerolog.SetGlobalLevel(lvl)
+
 	output := zerolog.ConsoleWriter{
-		Out:        os.Stdout,
+		Out:        w,
 		TimeFormat: "2006-01-02 15:04:05",
 	}
 
-	log = zerolog.New(output).
+	logger := zerolog.New(output).
 		With().
 		Timestamp().
 		Caller().
-		Logger()
+		Logger().
+		Level(lvl)
 
-	zerolog.SetGlobalLevel(zerolog.InfoLevel)
-
-	return &log
+	return &logger
 }
 
-// Get returns the global logger instance.
-func Get() *zerolog.Logger {
-	return &log
-}
-
-// Info logs an info message.
-func Info() *zerolog.Event {
-	return log.Info()
-}
-
-// Error logs an error message.
-func Error() *zerolog.Event {
-	return log.Error()
-}
-
-// Warn logs a warning message.
-func Warn() *zerolog.Event {
-	return log.Warn()
-}
-
-// Debug logs a debug message.
-func Debug() *zerolog.Event {
-	return log.Debug()
-}
-
-// SetLevel sets the global log level.
-func SetLevel(level string) {
-	switch level {
-	case "error":
-		zerolog.SetGlobalLevel(zerolog.ErrorLevel)
-	case "warn":
-		zerolog.SetGlobalLevel(zerolog.WarnLevel)
-	case "debug":
-		zerolog.SetGlobalLevel(zerolog.DebugLevel)
-	default:
-		zerolog.SetGlobalLevel(zerolog.InfoLevel)
-	}
+// NewNop создаёт "no-op" логгер, который игнорирует все записи.
+// Используется в тестах компонентов, чтобы не возиться с буфером вывода.
+func NewNop() *zerolog.Logger {
+	nop := zerolog.Nop()
+	return &nop
 }

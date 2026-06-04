@@ -175,7 +175,7 @@ func TestBalanceService_Withdraw(t *testing.T) {
 			userID:    "user-123",
 			orderNum:  "79927398713",
 			sum:       0,
-			wantErr:   ErrInvalidOrderNumber,
+			wantErr:   ErrInvalidAmount,
 			setupMock: func(m *MockBalanceStorage) {},
 		},
 		{
@@ -183,7 +183,7 @@ func TestBalanceService_Withdraw(t *testing.T) {
 			userID:    "user-123",
 			orderNum:  "79927398713",
 			sum:       -50,
-			wantErr:   ErrInvalidOrderNumber,
+			wantErr:   ErrInvalidAmount,
 			setupMock: func(m *MockBalanceStorage) {},
 		},
 		{

@@ -28,7 +28,9 @@ type BalanceHandler struct {
 }
 
 // NewBalanceHandler creates a new BalanceHandler.
-func NewBalanceHandler(svc *service.BalanceService, logger *zerolog.Logger) *BalanceHandler {
+// Принимает интерфейс BalanceServiceInterface для возможности подмены в тестах
+// (принцип "accept interfaces, return structures").
+func NewBalanceHandler(svc BalanceServiceInterface, logger *zerolog.Logger) *BalanceHandler {
 	return &BalanceHandler{
 		service: svc,
 		logger:  logger,
@@ -98,6 +100,10 @@ func (h *BalanceHandler) Withdraw(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		if errors.Is(err, service.ErrInvalidOrderNumber) {
 			http.Error(w, "invalid order number", http.StatusUnprocessableEntity)
+			return
+		}
+		if errors.Is(err, service.ErrInvalidAmount) {
+			http.Error(w, "sum must be positive", http.StatusBadRequest)
 			return
 		}
 		if errors.Is(err, service.ErrInsufficientFunds) {

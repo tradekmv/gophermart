@@ -9,22 +9,23 @@ import (
 	"github.com/rs/zerolog"
 	"github.com/tradekmv/gophermart.git/internal/middleware"
 	"github.com/tradekmv/gophermart.git/internal/model"
-	"github.com/tradekmv/gophermart.git/internal/service"
 )
 
-// withdrawalServiceInterface defines the minimal interface for withdrawal operations.
-type withdrawalServiceInterface interface {
+// WithdrawalServiceInterface defines the minimal interface for withdrawal operations.
+type WithdrawalServiceInterface interface {
 	GetWithdrawals(ctx context.Context, userID string) ([]model.WithdrawalResponse, error)
 }
 
 // WithdrawalHandler handles withdrawal-related HTTP requests.
 type WithdrawalHandler struct {
-	service withdrawalServiceInterface
+	service WithdrawalServiceInterface
 	logger  *zerolog.Logger
 }
 
 // NewWithdrawalHandler creates a new WithdrawalHandler.
-func NewWithdrawalHandler(svc *service.BalanceService, logger *zerolog.Logger) *WithdrawalHandler {
+// Принимает интерфейс WithdrawalServiceInterface для возможности подмены в тестах
+// (принцип "accept interfaces, return structures").
+func NewWithdrawalHandler(svc WithdrawalServiceInterface, logger *zerolog.Logger) *WithdrawalHandler {
 	return &WithdrawalHandler{
 		service: svc,
 		logger:  logger,

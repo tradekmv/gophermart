@@ -47,7 +47,7 @@ func TestBalanceHandler_GetBalance_Unauthorized(t *testing.T) {
 func TestBalanceHandler_GetBalance_Success(t *testing.T) {
 	logger := zerolog.Nop()
 	req := httptest.NewRequest(http.MethodGet, "/api/user/balance", nil)
-	ctx := context.WithValue(req.Context(), middleware.ContextKey("userID"), "user-123")
+	ctx := middleware.WithUserID(req.Context(), "user-123")
 	req = req.WithContext(ctx)
 	rr := httptest.NewRecorder()
 	mockService := &MockBalanceService{
@@ -56,10 +56,12 @@ func TestBalanceHandler_GetBalance_Success(t *testing.T) {
 	h := &BalanceHandler{service: mockService, logger: &logger}
 	h.GetBalance(rr, req)
 	if rr.Code != http.StatusOK {
-		t.Errorf("expected %d, got %d", http.StatusOK, rr.Code)
+		t.Fatalf("expected %d, got %d: %s", http.StatusOK, rr.Code, rr.Body.String())
 	}
 	var balance model.BalanceResponse
-	json.Unmarshal(rr.Body.Bytes(), &balance)
+	if err := json.Unmarshal(rr.Body.Bytes(), &balance); err != nil {
+		t.Fatalf("failed to unmarshal response: %v", err)
+	}
 	if balance.Current != 500.50 {
 		t.Errorf("expected 500.50, got %f", balance.Current)
 	}
@@ -68,7 +70,7 @@ func TestBalanceHandler_GetBalance_Success(t *testing.T) {
 func TestBalanceHandler_GetBalance_InternalError(t *testing.T) {
 	logger := zerolog.Nop()
 	req := httptest.NewRequest(http.MethodGet, "/api/user/balance", nil)
-	ctx := context.WithValue(req.Context(), middleware.ContextKey("userID"), "user-123")
+	ctx := middleware.WithUserID(req.Context(), "user-123")
 	req = req.WithContext(ctx)
 	rr := httptest.NewRecorder()
 	mockService := &MockBalanceService{balanceErr: errors.New("db error")}
@@ -85,7 +87,7 @@ func TestBalanceHandler_Withdraw_InvalidContentType(t *testing.T) {
 	body, _ := json.Marshal(reqBody)
 	req := httptest.NewRequest(http.MethodPost, "/api/user/balance/withdraw", bytes.NewBuffer(body))
 	req.Header.Set("Content-Type", "text/plain")
-	ctx := context.WithValue(req.Context(), middleware.ContextKey("userID"), "user-123")
+	ctx := middleware.WithUserID(req.Context(), "user-123")
 	req = req.WithContext(ctx)
 	rr := httptest.NewRecorder()
 	h := &BalanceHandler{service: nil, logger: &logger}
@@ -99,7 +101,7 @@ func TestBalanceHandler_Withdraw_InvalidJSON(t *testing.T) {
 	logger := zerolog.Nop()
 	req := httptest.NewRequest(http.MethodPost, "/api/user/balance/withdraw", bytes.NewBufferString("not json"))
 	req.Header.Set("Content-Type", "application/json")
-	ctx := context.WithValue(req.Context(), middleware.ContextKey("userID"), "user-123")
+	ctx := middleware.WithUserID(req.Context(), "user-123")
 	req = req.WithContext(ctx)
 	rr := httptest.NewRecorder()
 	h := &BalanceHandler{service: nil, logger: &logger}
@@ -129,7 +131,7 @@ func TestBalanceHandler_Withdraw_MissingOrder(t *testing.T) {
 	body, _ := json.Marshal(reqBody)
 	req := httptest.NewRequest(http.MethodPost, "/api/user/balance/withdraw", bytes.NewBuffer(body))
 	req.Header.Set("Content-Type", "application/json")
-	ctx := context.WithValue(req.Context(), middleware.ContextKey("userID"), "user-123")
+	ctx := middleware.WithUserID(req.Context(), "user-123")
 	req = req.WithContext(ctx)
 	rr := httptest.NewRecorder()
 	h := &BalanceHandler{service: nil, logger: &logger}
@@ -145,7 +147,7 @@ func TestBalanceHandler_Withdraw_InvalidSum(t *testing.T) {
 	body, _ := json.Marshal(reqBody)
 	req := httptest.NewRequest(http.MethodPost, "/api/user/balance/withdraw", bytes.NewBuffer(body))
 	req.Header.Set("Content-Type", "application/json")
-	ctx := context.WithValue(req.Context(), middleware.ContextKey("userID"), "user-123")
+	ctx := middleware.WithUserID(req.Context(), "user-123")
 	req = req.WithContext(ctx)
 	rr := httptest.NewRecorder()
 	h := &BalanceHandler{service: nil, logger: &logger}
@@ -161,7 +163,7 @@ func TestBalanceHandler_Withdraw_NegativeSum(t *testing.T) {
 	body, _ := json.Marshal(reqBody)
 	req := httptest.NewRequest(http.MethodPost, "/api/user/balance/withdraw", bytes.NewBuffer(body))
 	req.Header.Set("Content-Type", "application/json")
-	ctx := context.WithValue(req.Context(), middleware.ContextKey("userID"), "user-123")
+	ctx := middleware.WithUserID(req.Context(), "user-123")
 	req = req.WithContext(ctx)
 	rr := httptest.NewRecorder()
 	h := &BalanceHandler{service: nil, logger: &logger}
@@ -177,7 +179,7 @@ func TestBalanceHandler_Withdraw_Success(t *testing.T) {
 	body, _ := json.Marshal(reqBody)
 	req := httptest.NewRequest(http.MethodPost, "/api/user/balance/withdraw", bytes.NewBuffer(body))
 	req.Header.Set("Content-Type", "application/json")
-	ctx := context.WithValue(req.Context(), middleware.ContextKey("userID"), "user-123")
+	ctx := middleware.WithUserID(req.Context(), "user-123")
 	req = req.WithContext(ctx)
 	rr := httptest.NewRecorder()
 	mockService := &MockBalanceService{withdrawErr: nil}
@@ -194,7 +196,7 @@ func TestBalanceHandler_Withdraw_InvalidOrderNumber(t *testing.T) {
 	body, _ := json.Marshal(reqBody)
 	req := httptest.NewRequest(http.MethodPost, "/api/user/balance/withdraw", bytes.NewBuffer(body))
 	req.Header.Set("Content-Type", "application/json")
-	ctx := context.WithValue(req.Context(), middleware.ContextKey("userID"), "user-123")
+	ctx := middleware.WithUserID(req.Context(), "user-123")
 	req = req.WithContext(ctx)
 	rr := httptest.NewRecorder()
 	mockService := &MockBalanceService{withdrawErr: service.ErrInvalidOrderNumber}
@@ -211,7 +213,7 @@ func TestBalanceHandler_Withdraw_InsufficientFunds(t *testing.T) {
 	body, _ := json.Marshal(reqBody)
 	req := httptest.NewRequest(http.MethodPost, "/api/user/balance/withdraw", bytes.NewBuffer(body))
 	req.Header.Set("Content-Type", "application/json")
-	ctx := context.WithValue(req.Context(), middleware.ContextKey("userID"), "user-123")
+	ctx := middleware.WithUserID(req.Context(), "user-123")
 	req = req.WithContext(ctx)
 	rr := httptest.NewRecorder()
 	mockService := &MockBalanceService{withdrawErr: service.ErrInsufficientFunds}
@@ -228,7 +230,7 @@ func TestBalanceHandler_Withdraw_InternalError(t *testing.T) {
 	body, _ := json.Marshal(reqBody)
 	req := httptest.NewRequest(http.MethodPost, "/api/user/balance/withdraw", bytes.NewBuffer(body))
 	req.Header.Set("Content-Type", "application/json")
-	ctx := context.WithValue(req.Context(), middleware.ContextKey("userID"), "user-123")
+	ctx := middleware.WithUserID(req.Context(), "user-123")
 	req = req.WithContext(ctx)
 	rr := httptest.NewRecorder()
 	mockService := &MockBalanceService{withdrawErr: errors.New("db error")}
@@ -236,5 +238,24 @@ func TestBalanceHandler_Withdraw_InternalError(t *testing.T) {
 	h.Withdraw(rr, req)
 	if rr.Code != http.StatusInternalServerError {
 		t.Errorf("expected %d, got %d", http.StatusInternalServerError, rr.Code)
+	}
+}
+
+func TestBalanceHandler_Withdraw_InvalidAmount(t *testing.T) {
+	// Сервис может вернуть ErrInvalidAmount при прямом вызове (защита от sum<=0).
+	// Хендлер должен ответить 400, а не 422.
+	logger := zerolog.Nop()
+	reqBody := model.WithdrawRequest{Order: "79927398713", Sum: 0}
+	body, _ := json.Marshal(reqBody)
+	req := httptest.NewRequest(http.MethodPost, "/api/user/balance/withdraw", bytes.NewBuffer(body))
+	req.Header.Set("Content-Type", "application/json")
+	ctx := middleware.WithUserID(req.Context(), "user-123")
+	req = req.WithContext(ctx)
+	rr := httptest.NewRecorder()
+	mockService := &MockBalanceService{withdrawErr: service.ErrInvalidAmount}
+	h := &BalanceHandler{service: mockService, logger: &logger}
+	h.Withdraw(rr, req)
+	if rr.Code != http.StatusBadRequest {
+		t.Errorf("expected %d, got %d", http.StatusBadRequest, rr.Code)
 	}
 }

@@ -45,7 +45,7 @@ func TestWithdrawalHandler_GetWithdrawals_Unauthorized(t *testing.T) {
 func TestWithdrawalHandler_GetWithdrawals_Success(t *testing.T) {
 	logger := zerolog.Nop()
 	req := httptest.NewRequest(http.MethodGet, "/api/user/withdrawals", nil)
-	ctx := context.WithValue(req.Context(), middleware.ContextKey("userID"), "user-123")
+	ctx := middleware.WithUserID(req.Context(), "user-123")
 	req = req.WithContext(ctx)
 	rr := httptest.NewRecorder()
 	now := time.Now()
@@ -58,10 +58,12 @@ func TestWithdrawalHandler_GetWithdrawals_Success(t *testing.T) {
 	h := &WithdrawalHandler{service: mockService, logger: &logger}
 	h.GetWithdrawals(rr, req)
 	if rr.Code != http.StatusOK {
-		t.Errorf("expected %d, got %d", http.StatusOK, rr.Code)
+		t.Fatalf("expected %d, got %d: %s", http.StatusOK, rr.Code, rr.Body.String())
 	}
 	var withdrawals []model.WithdrawalResponse
-	json.Unmarshal(rr.Body.Bytes(), &withdrawals)
+	if err := json.Unmarshal(rr.Body.Bytes(), &withdrawals); err != nil {
+		t.Fatalf("failed to unmarshal response: %v", err)
+	}
 	if len(withdrawals) != 2 {
 		t.Errorf("expected 2, got %d", len(withdrawals))
 	}
@@ -70,7 +72,7 @@ func TestWithdrawalHandler_GetWithdrawals_Success(t *testing.T) {
 func TestWithdrawalHandler_GetWithdrawals_Empty(t *testing.T) {
 	logger := zerolog.Nop()
 	req := httptest.NewRequest(http.MethodGet, "/api/user/withdrawals", nil)
-	ctx := context.WithValue(req.Context(), middleware.ContextKey("userID"), "user-123")
+	ctx := middleware.WithUserID(req.Context(), "user-123")
 	req = req.WithContext(ctx)
 	rr := httptest.NewRecorder()
 	mockService := &MockBalanceServiceForWithdrawals{withdrawals: []model.WithdrawalResponse{}}
@@ -84,7 +86,7 @@ func TestWithdrawalHandler_GetWithdrawals_Empty(t *testing.T) {
 func TestWithdrawalHandler_GetWithdrawals_InternalError(t *testing.T) {
 	logger := zerolog.Nop()
 	req := httptest.NewRequest(http.MethodGet, "/api/user/withdrawals", nil)
-	ctx := context.WithValue(req.Context(), middleware.ContextKey("userID"), "user-123")
+	ctx := middleware.WithUserID(req.Context(), "user-123")
 	req = req.WithContext(ctx)
 	rr := httptest.NewRecorder()
 	mockService := &MockBalanceServiceForWithdrawals{getWErr: errors.New("db error")}
